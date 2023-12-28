@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<section class="hero-section d-flex justify-content-center align-items-center">
+    <div class="container">
+        <div class="row">
+
+            <div class="col-lg-5 col-12 mx-auto">
+                {% for message in messages %}
+                    <div class="alert alert-warning">
+                        <a class="close" href="#" data-dismiss ="alert">x</a>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+                <form action="{% url 'login' %}" class="custom-form login-form" role="form" method="post">
+                    {% csrf_token %}
+                    <h2 class="hero-title text-center mb-4 pb-2">Login to Account</h2>
+
+                    <div class="form-floating mb-4 p-0">
+                        <input type="email" name="email" id="email" pattern="[^ @]*@[^ @]*" class="form-control" placeholder="Email address" required />
+                        <label for="email">Email address</label>
+                    </div>
+
+                    <div class="form-floating p-0">
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Password" data-toggle="password" required />
+                        <label for="password">Password</label>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault">
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Remember me
+                        </label>
+                    </div>
+
+                    <div class="row justify-content-center align-items-center">
+                        <div class="col-lg-5 col-12">
+                            <button type="submit" class="form-control">Login</button>
+                        </div>
+
+                        <div class="col-lg-5 col-12">
+                            <a href="{% url 'register' %}" class="btn custom-btn custom-border-btn">Register</a>
+                        </div>
+                    </div>
+
+                </form>
+                
+            </div>
+        </div>
+    </div>
+
+    <div class="video-wrap">
+        <video autoplay="" loop="" muted="" class="custom-video" poster="">
+            <source src="{% static 'videos/video.mp4' %}" type="video/mp4">
+
+            Your browser does not support the video tag.
+        </video>
+    </div>
+</section>
+{% endblock %}
