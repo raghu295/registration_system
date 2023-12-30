@@ -1,5 +1,3 @@
-import email
-from os import name
 from django.shortcuts import render, redirect, HttpResponse, HttpResponseRedirect
 from .forms import RegistrationForm
 from .models import Profile, Contact, User
@@ -9,15 +7,24 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 import re
+from datetime import timedelta
+from django.utils import timezone
+from cryptography.fernet import Fernet
 
 def register(request):
     form = RegistrationForm()
     if request.method == 'POST':
+       print(request.POST)  # Add this line for debugging
        first_name = request.POST.get("first_name")
        last_name = request.POST.get("last_name")
        email_id = request.POST.get("email")
        password = request.POST.get("password")
        confirm_password = request.POST.get("confirm_password")
+       
+       # Check if email_id is None or empty
+       if not email_id:
+           messages.error(request, "Email cannot be empty")
+           return redirect("register")
        
        
        if password != confirm_password:
@@ -36,12 +43,15 @@ def register(request):
            return redirect("register")
 
         # insert profile to database
-       user_data = {"username": email_id, "email": email_id, "password": password}
+       username = email_id.split('@')[0] if email_id else 'user' # Use the part before the '@' as the username
+
+       user_data = {"username": username, "email": email_id, "password": password}
        user = User.objects.create(**user_data)
        user.set_password(password)
        user.save()
        profile_data = {"user": user, "firstname": first_name, "lastname": last_name}
        profile = Profile.objects.create(**profile_data)
+       profile.save_encrypted_data(password)       # Encrypt and save the password
        return redirect("login")
         
     return render(request, 'register.html', {'form': form})
@@ -69,21 +79,46 @@ def log_in(request):
         if user_query:
             username = user_query.username     # get user from user table
         user = authenticate(request, username =username, password= password)
+        
         if user is not None:
+            profile = Profile.objects.get(user__email=email_id)      # Implement account lockout mechanisms
+            if profile.is_locked and profile.locked_until > timezone.now():
+                messages.error(request, "Account is locked. Please try again later.")
+                return redirect("login")
+            
+            if user.check_password(password):
+            # Reset failed login attempts upon successful login
+                profile.failed_login_attempts = 0
+                user.save()
             login(request, user)
             profile_pic = None
             if Profile.objects.filter(user__email=request.user.email).exists():
                 profile_pic = Profile.objects.get(user__email=request.user.email).profile_image
             request.session["profile_pic"] = profile_pic
             return redirect("home")
-
+        
         else:
-            messages.error(request, message="Email or Password is incorrect")
-            return redirect("login")
+            handle_failed_login(request, profile)
+
     return render(request, "login.html")
 
 
+def handle_failed_login(request, profile):
+    profile.failed_login_attempts += 1
+    profile.save()
+
+    if profile.failed_login_attempts >= 3:
+        profile.is_locked = True
+        profile.locked_until = timezone.now() + timedelta(minutes=30)   # Lock the account for 30 minutes (adjust as needed)
+        profile.save()
+
+        messages.error(request, "Account locked. Too many consecutive failed login attempts.")
+        return redirect("login")
+
+
+@login_required
 def password_reset(request):
+    user = request.user
     if request.method == 'POST':
         password = request.POST['password']
         confirm_password = request.POST['confirm_password']
@@ -94,7 +129,17 @@ def password_reset(request):
             messages.success(request, "Your password has been successfully changed")
             return redirect('login')
         
+        # Update last_password_change field after a successful password change
+        user.last_password_change = timezone.now()
+        user.save()
+        
     return render(request, 'password_reset.html')
+
+def password_change_required(user):
+    # Check if the user's last password change was more than 90 days ago
+    if user.last_password_change is None or (timezone.now() - user.last_password_change) > timedelta(days=90):
+        return True
+    return False
 
 
 @login_required
