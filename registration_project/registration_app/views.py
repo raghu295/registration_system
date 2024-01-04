@@ -144,25 +144,34 @@ def password_change_required(user):
 
 @login_required
 def profile_page(request):
-    # get value on session
-    print("request.session:", request.session.get("blog"))
-    profile = {}
-    if Profile.objects.filter(user__email=request.user.email).exists():
-        profile = Profile.objects.get(user__email=request.user.email)
-        if request.method == "POST":
-            contact = request.POST.get("contact")
-            address = request.POST.get("address")
-            profile_image = request.FILES.get("profile_image")
-            if profile_image:
-                profile_image_url = save_file(request, profile_image)
-                profile.profile_image = profile_image_url
-            if contact:
-                profile.contact = contact
-            if address:
-                profile.address = address
-            profile.save()
-            messages.info(request, message="Profile updated Successfully")
-            return redirect("profile_page")
+    try:
+        profile = Profile.objects.get(user=request.user)
+    except Profile.DoesNotExist:
+        profile = None
+
+    if request.method == "POST":
+        contact = request.POST.get("contact")
+        address = request.POST.get("address")
+        profile_image = request.FILES.get("profile_image")
+
+        if not profile:
+            # If the profile doesn't exist, create a new one
+            profile = Profile(user=request.user)
+
+        if profile_image:
+            # Save the profile image using your utility function
+            profile.profile_image = save_file(request, profile_image)
+
+        if contact:
+            profile.contact = contact
+
+        if address:
+            profile.address = address
+
+        profile.save()
+        messages.success(request, "Profile updated successfully")
+        return redirect("profile_page")
+
     context = {"profile": profile}
     return render(request, "profile.html", context)
 
