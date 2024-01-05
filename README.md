@@ -35,5 +35,5 @@ This project aims to create a secure registration system prototype for online co
 1. Clone the repository:
    ```bash
    git clone https://github.com/raghu295/registration_system.git
-   cd secure-registration-system
-   `Run the server` **cmd**: `python manage.py runserver`
+   cd registration_project
+   Run the server - python manage.py runserver
